@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Cenas</title>
+    <style>
+        :root {
+            --bg-color: #1e1e2e;
+            --panel-bg: #252538;
+            --text-color: #cdd6f4;
+            --accent-color: #cba6f7;
+            --accent-hover: #b4befe;
+            --border-color: #45475a;
+            --danger-color: #f38ba8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar para as Cenas */
+        #sidebar {
+            width: 280px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #11111b;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        #scene-list {
+            list-style: none;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .scene-item {
+            background: #313244;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .scene-item:hover {
+            border-color: var(--accent-hover);
+        }
+
+        .scene-item.active {
+            background: var(--accent-color);
+            color: #11111b;
+            font-weight: bold;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 0 5px;
+        }
+        
+        .scene-item.active .delete-btn {
+            color: #11111b;
+        }
+
+        /* Área de Edição Primária */
+        #main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 15px;
+        }
+
+        .editor-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        input[type="text"], textarea {
+            background-color: #313244;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+
+        input:focus, textarea:focus {
+            outline: 1px solid var(--accent-color);
+        }
+
+        /* Zona do Preview */
+        #preview-box {
+            flex-grow: 1;
+            background-color: #11111b;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #preview-render {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            transition: all 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>Cenas</h2>
+        <button class="btn" onclick="createNewScene()">+ Nova Cena</button>
+        <ul id="scene-list"></ul>
+    </div>
+
+    <div id="main-content">
+        <h2>Configuração da Cena Ativa</h2>
+        
+        <div class="editor-zone">
+            <label for="scene-title">Título da Cena</label>
+            <input type="text" id="scene-title" oninput="updateCurrentScene()" placeholder="Ex: Introdução, Nível 1...">
+        </div>
+
+        <div class="editor-zone">
+            <label for="scene-text">Texto / Diálogo</label>
+            <textarea id="scene-text" oninput="updateCurrentScene()" placeholder="O que acontece nesta cena..."></textarea>
+        </div>
+
+        <div class="editor-zone">
+            <label for="scene-color">Cor de Fundo (Hex ou Nome)</label>
+            <input type="text" id="scene-color" oninput="updateCurrentScene()" placeholder="Ex: #313244, darkblue, maroon...">
+        </div>
+
+        <h2>Visualização ao Vivo</h2>
+        <div id="preview-box">
+            <div id="preview-render">
+                <h1 id="view-title" style="margin-bottom: 15px;"></h1>
+                <p id="view-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scenes = [
+            { id: 1, title: 'Cena 1: Início', text: 'Bem-vindo ao gestor! Esta é a sua primeira cena interativa.', color: '#2a2b3d' },
+            { id: 2, title: 'Cena 2: O Desafio', text: 'Algo inesperado acontece. O que o herói fará a seguir?', color: '#3f2d3b' }
+        ];
+        let activeSceneId = 1;
+
+        function renderSceneList() {
+            const list = document.getElementById('scene-list');
+            list.innerHTML = '';
+            
+            scenes.forEach(scene => {
+                const li = document.createElement('li');
+                li.className = `scene-item ${scene.id === activeSceneId ? 'active' : ''}`;
+                li.onclick = () => selectScene(scene.id);
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = scene.title || 'Cena sem título';
+                li.appendChild(titleSpan);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '×';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteScene(scene.id);
+                };
+                li.appendChild(deleteBtn);
+
+                list.appendChild(li);
+            });
+        }
+
+        function selectScene(id) {
+            activeSceneId = id;
+            const scene = scenes.find(s => s.id === id);
+            if (scene) {
+                document.getElementById('scene-title').value = scene.title;
+                document.getElementById('scene-text').value = scene.text;
+                document.getElementById('scene-color').value = scene.color;
+                renderPreview(scene);
+            }
+            renderSceneList();
+        }
+
+        function createNewScene() {
+            const newId = scenes.length > 0 ? Math.max(...scenes.map(s => s.id)) + 1 : 1;
+            const newScene = {
+                id: newId,
+                title: `Nova Cena ${newId}`,
+                text: 'Escreva o roteiro ou descrição aqui.',
+                color: '#1e1e2e'
+            };
+            scenes.push(newScene);
+            selectScene(newId);
+        }
+
+        function deleteScene(id) {
+            scenes = scenes.filter(s => s.id !== id);
+            if (activeSceneId === id && scenes.length > 0) {
+                activeSceneId = scenes[0].id;
+            } else if (scenes.length === 0) {
+                activeSceneId = null;
+                document.getElementById('scene-title').value = '';
+                document.getElementById('scene-text').value = '';
+                document.getElementById('scene-color').value = '';
+            }
+            selectScene(activeSceneId);
+        }
+
+        function updateCurrentScene() {
+            const scene = scenes.find(s => s.id === activeSceneId);
+            if (scene) {
+                scene.title = document.getElementById('scene-title').value;
+                scene.text = document.getElementById('scene-text').value;
+                scene.color = document.getElementById('scene-color').value;
+                
+                // Update text in sidebar list without full re-render to save focus
+                const activeLi = document.querySelector('.scene-item.active span');
+                if (activeLi) activeLi.textContent = scene.title || 'Cena sem título';
+                
+                renderPreview(scene);
+            }
+        }
+
+        function renderPreview(scene) {
+            const renderArea = document.getElementById('preview-render');
+            document.getElementById('view-title').textContent = scene.title;
+            document.getElementById('view-text').textContent = scene.text;
+            renderArea.style.backgroundColor = scene.color || '#11111b';
+        }
+
+        // Inicializar
+        if (scenes.length > 0) {
+            selectScene(activeSceneId);
+        } else {
+            renderSceneList();
+        }
+    </script>
+</body>
+</html>
